@@ -58,14 +58,30 @@ namespace ContossoUniversity.Controllers
         // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("ID,LastName,FirstMidName,EnrollmentDate")] Student student)
+		//public async Task<IActionResult> Create(
+		//  [Bind("ID,LastName,FirstMidName,EnrollmentDate")] Student student
+		//  )
+        public async Task<IActionResult> Create(
+			[Bind("LastName,FirstMidName,EnrollmentDate")] Student student
+			)
         {
-            if (ModelState.IsValid)
-            {
-                _context.Add(student);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
-            }
+			//explicitly state the fields you want to fill, so that if new fields become avail. in the datamodel, they don't create confusion ; 
+			//also for security reasons - avoid overposting - tricked/"hacked"/"hijacked" posting - ao. ... 
+			try
+			{
+				if (ModelState.IsValid)
+				{
+					_context.Add(student);
+					await _context.SaveChangesAsync();
+					return RedirectToAction(nameof(Index));
+				}
+			}
+			catch (DbUpdateException /* exc */)
+			{
+				//Log the err (uncomment var name exc in the above catch-spec & write a log) 
+				ModelState.AddModelError("", "Unable to save changes to DB \n" +
+											  "Try again, and if the problem persists see your system admin :( ");
+			}
             return View(student);
         }
 
@@ -85,69 +101,150 @@ namespace ContossoUniversity.Controllers
             return View(student);
         }
 
-        // POST: Students/Edit/5
-        // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
-        // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("ID,LastName,FirstMidName,EnrollmentDate")] Student student)
-        {
-            if (id != student.ID)
-            {
-                return NotFound();
-            }
+		// POST: Students/Edit/5
+		// To protect from overposting attacks, please enable the specific properties you want to bind to, for 
+		// more details see http://go.microsoft.com/fwlink/?LinkId=317598.
+		//[HttpPost]
+		//[ValidateAntiForgeryToken]
+		//public async Task<IActionResult> Edit(int id, [Bind("ID,LastName,FirstMidName,EnrollmentDate")] Student student)
+		//{
+		//    if (id != student.ID)
+		//    {
+		//        return NotFound();
+		//    }
 
-            if (ModelState.IsValid)
-            {
-                try
-                {
-                    _context.Update(student);
-                    await _context.SaveChangesAsync();
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!StudentExists(student.ID))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
-                return RedirectToAction(nameof(Index));
-            }
-            return View(student);
-        }
+		//    if (ModelState.IsValid)
+		//    {
+		//        try
+		//        {
+		//            _context.Update(student);
+		//            await _context.SaveChangesAsync();
+		//        }
+		//        catch (DbUpdateConcurrencyException)
+		//        {
+		//            if (!StudentExists(student.ID))
+		//            {
+		//                return NotFound();
+		//            }
+		//            else
+		//            {
+		//                throw;
+		//            }
+		//        }
+		//        return RedirectToAction(nameof(Index));
+		//    }
+		//    return View(student);
+		//}
 
-        // GET: Students/Delete/5
-        public async Task<IActionResult> Delete(int? id)
-        {
-            if (id == null)
-            {
-                return NotFound();
-            }
 
-            var student = await _context.Students
-                .SingleOrDefaultAsync(m => m.ID == id);
-            if (student == null)
-            {
-                return NotFound();
-            }
+		//possible alternative would be 
+		//public async Task<IActionResult> Edit(int id, [Bind("ID,EnrollmentDate,FirstMidName,LastName")] Student student) 
 
-            return View(student);
-        }
+		[HttpPost, ActionName("Edit")]
+		[ValidateAntiForgeryToken]
+		public async Task<IActionResult> EditPost(int? id)
+		{
+			if (id == null)
+			{
+				return NotFound();
+			}
+			var studentToUpdate = await _context.Students.SingleOrDefaultAsync(s => s.ID == id);
+			if (await TryUpdateModelAsync<Student>(
+				studentToUpdate,
+				"",
+				s => s.FirstMidName, s => s.LastName, s => s.EnrollmentDate))
+				{
+				  try
+				  {
+					await _context.SaveChangesAsync();
+					return RedirectToAction(nameof(Index));
+				  }
+				  catch (DbUpdateException /* ex */)
+				  {
+					//Log the error (uncomment ex variable name and write a log.)
+					ModelState.AddModelError(key:"", errorMessage:"Unable to save changes... " +
+																  "Try again, and if the problem persists, " +
+																  "see your system administrator :( ");
+				  }
+			}
+			return View(studentToUpdate);
+		}
 
-        // POST: Students/Delete/5
-        [HttpPost, ActionName("Delete")]
+
+		//    // GET: Students/Delete/5
+		//	public async Task<IActionResult> Delete(int? id)
+		//      {
+		//          if (id == null)
+		//          {
+		//              return NotFound();
+		//          }
+		//
+		//          var student = await _context.Students
+		//              .SingleOrDefaultAsync(m => m.ID == id);
+		//          if (student == null)
+		//          {
+		//              return NotFound();
+		//          }
+		//
+		//          return View(student);
+		//      }
+
+		//AsNoTracking -> improves (sql?)performance in scenarios where the entities returned won't be updated in the current context's lifetime... 
+		//context.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
+
+		public async Task<IActionResult> Delete(int? id, bool? saveChangesError = false)
+		{
+			if (id == null)
+			{
+				return NotFound();   
+			}
+
+			var student = await _context.Students
+										.AsNoTracking()
+										.SingleOrDefaultAsync(m => m.ID == id);
+			if (student == null)
+			{
+				return NotFound();
+			}
+
+			if (saveChangesError.GetValueOrDefault())
+			{
+				ViewData["ErrorMessage"] =
+					"Delete failed. \n Try again, and if the problem persists, " +
+					"see your system administrator :( ";
+			}
+
+			return View(student);
+		}
+
+
+
+		// POST: Students/Delete/5
+		[HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var student = await _context.Students.SingleOrDefaultAsync(m => m.ID == id);
-            _context.Students.Remove(student);
-            await _context.SaveChangesAsync();
-            return RedirectToAction(nameof(Index));
-        }
+            var student = await _context.Students
+				.AsNoTracking()
+				.SingleOrDefaultAsync(m => m.ID == id);
+			if (student == null)
+			{
+				return RedirectToAction(nameof(Index));
+			}
+
+			try
+			{
+				_context.Students.Remove(student);
+				await _context.SaveChangesAsync();
+				return RedirectToAction(nameof(Index));
+			}
+			catch (DbUpdateException  /* Exc */)
+			{
+				//Log the error (uncomment exc var higher & write logging)
+				return RedirectToAction(nameof(Delete), new { id = id, saveChangesError = true } );
+			}
+
+		}
 
         private bool StudentExists(int id)
         {
