@@ -1,4 +1,5 @@
-﻿@model IEnumerable<ContosoUniversity.Models.Student>
+﻿@model ContosoUniversity.PaginatedList<ContosoUniversity.Models.Student>
+
 
 @{
 	ViewData["Title"] = "Index";
@@ -6,12 +7,15 @@
 
 <h2>Index</h2>
 
+<!--at_model --IEnumerable<ContosoUniversity.Models.Student> -->
+
+
 <p>
 	<a asp-action="Create">Create New</a>
 </p>
 
-<!-- By default, the <form> tag helper submits form data with a POST. 
-	 The W3C guidelines recommend that you should use GET when the action doesn't result in an update. 
+<!-- By default, the <form> tag helper submits form data with a POST.
+	 The W3C guidelines recommend that you should use GET when the action doesn't result in an update.
 -->
 <form asp-action="Index" method="get">
 	<div class="form-actions no-color">
@@ -27,13 +31,14 @@
 	<thead>
 		<tr>
 			<th>
-				@Html.DisplayNameFor(model => model.FirstMidName)
+				<!-- at_Html.DisplayNameFor(model => model.FirstMidName) -->
+				First Name <!-- you're no longer directly linked to the model (as you wre with the IEnumerable - you're linked to the PaginatedList who is general (<T>) , so you cannot get the name for the field any more... so the at_Html will no longer work -->
 			</th>
 			<th>
-				<a asp-action="Index" asp-route-sortOrder="@ViewData["NameSortParm"]">@Html.DisplayNameFor(model => model.LastName)</a>
+				<a asp-action="Index" asp-route-sortOrder="@ViewData["NameSortParm"]" asp-route-currentFilter="@ViewData["CurrentFilter"]">Last Name</a>
 			</th>
 			<th>
-				<a asp-action="Index" asp-route-sortOrder="@ViewData["DateSortParm"]">@Html.DisplayNameFor(model => model.EnrollmentDate)</a>
+				<a asp-action="Index" asp-route-sortOrder="@ViewData["DateSortParm"]" asp-route-currentFilter="@ViewData["CurrentFilter"]">Enrollment Date</a>
 			</th>
 			<th></th>
 		</tr>
@@ -60,3 +65,24 @@
 		}
 	</tbody>
 </table>
+
+@{
+	var prevDisabled = (!(Model.HasPreviousPage)) ? "disabled" : String.Empty;
+	var nextDisabled = (!(Model.HasNextPage)) ? "disabled" : String.Empty;
+}
+
+<a asp-action="Index"
+   asp-route-sortOrder="@ViewData["CurrentSort"]"
+   asp-route-page="@(Model.PageIndex - 1)"
+   asp-route-currentFilter="@ViewData["CurrentFilter"]"
+   class="btn btn-default @prevDisabled">
+	Previous
+</a>
+<a asp-action="Index"
+   asp-route-sortOrder="@ViewData["CurrentSort"]"
+   asp-route-page="@(Model.PageIndex + 1)"
+   asp-route-currentFilter="@ViewData["CurrentFilter"]"
+   class="btn btn-default @nextDisabled">
+	Next
+</a>
+
